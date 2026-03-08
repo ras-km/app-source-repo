@@ -1,6 +1,6 @@
 # Stage 1: We use nginx to serve static files
 # Using a specific digest is more secure than just 'latest'
-FROM nginx:1.25-alpine
+FROM nginx:1.27-alpine
  
 # Create non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
