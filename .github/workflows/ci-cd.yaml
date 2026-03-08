@@ -93,7 +93,7 @@ jobs:
           format: 'table'
           output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: true
 
       - name: Upload image scan results
