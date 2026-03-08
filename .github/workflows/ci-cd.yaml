@@ -90,7 +90,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ghcr.io/ras-km/hello-world:${{ steps.version.outputs.tag }}
-          format: 'sarif'
+          format: 'table'
           output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
