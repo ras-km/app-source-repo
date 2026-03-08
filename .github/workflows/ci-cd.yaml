@@ -90,14 +90,15 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ghcr.io/ras-km/hello-world:${{ steps.version.outputs.tag }}
-          format: 'table'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
 
       - name: Upload image scan results
         uses: github/codeql-action/upload-sarif@v4
-        if: false
+        if: always()
         with:
           sarif_file: 'trivy-image-results.sarif'
 
