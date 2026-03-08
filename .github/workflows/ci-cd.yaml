@@ -15,25 +15,28 @@ jobs:
   source-scan:
     name: 'Security: Source Code Scan'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Run Trivy source code vulnerability scan
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'           # Filesystem scan
+          scan-type: 'fs'
           scan-ref: '.'
-          format: 'sarif'           # Standard security report format
+          format: 'sarif'
           output: 'trivy-source-results.sarif'
-          severity: 'CRITICAL,HIGH' # Only fail on serious issues
-          exit-code: '1'            # Fail pipeline if issues found
- 
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
       - name: Upload scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()  # Upload even if scan failed
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
           sarif_file: 'trivy-source-results.sarif'
- 
+
       - name: Notify on vulnerability found
         if: failure()
         uses: actions/github-script@v7
@@ -97,7 +100,7 @@ jobs:
           exit-code: '1'
  
       - name: Upload image scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-image-results.sarif'
