@@ -1,7 +1,7 @@
 FROM nginx:1.27-alpine
 
 # Upgrade vulnerable packages to their fixed versions
-RUN apk upgrade --no-cache libcrypto3 libssl3 libpng libxml2
+RUN apk upgrade --no-cache
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
