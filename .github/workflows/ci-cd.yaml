@@ -140,7 +140,8 @@ jobs:
       - name: Update image tag
         run: |
           cd apps/hello-world/overlays/production
-          sed -i 's|newTag:.*|newTag: ${{ needs.build-and-scan.outputs.image-tag }}|' kustomization.yaml
+          sed -i "s|newTag:.*|newTag: ${{ needs.build-and-scan.outputs.image-tag }}|" kustomization.yaml
+          cat kustomization.yaml
 
       - name: Commit and push
         run: |
