@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello World - GitOps Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; justify-content: center;
+           align-items: center; min-height: 100vh; margin: 0;
+           background: linear-gradient(135deg, #1a1a2e, #16213e); }
+    .card { background: white; padding: 2rem 4rem; border-radius: 16px;
+            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    h1 { color: #2E75B6; font-size: 3rem; margin-bottom: 0.5rem; }
+    p { color: #666; font-size: 1.1rem; }
+    .badge { background: #e8f4ff; color: #2E75B6; padding: 0.3rem 1rem;
+             border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+    .version { color: #999; font-size: 0.8rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>👋 Hello World!</h1>
+    <p>Deployed with GitOps using ArgoCD</p>
+    <span class="badge">🚀 Kubernetes</span>
+    <p class="version">Version: APP_VERSION</p>
+  </div>
+</body>
+</html>

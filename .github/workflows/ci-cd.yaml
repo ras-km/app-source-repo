@@ -1,0 +1,154 @@
+name: CI/CD Pipeline
+ 
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+ 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+ 
+jobs:
+  # ── JOB 1: Source Code Security Scan ────────────────────────────────
+  source-scan:
+    name: 'Security: Source Code Scan'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - name: Run Trivy source code vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'           # Filesystem scan
+          scan-ref: '.'
+          format: 'sarif'           # Standard security report format
+          output: 'trivy-source-results.sarif'
+          severity: 'CRITICAL,HIGH' # Only fail on serious issues
+          exit-code: '1'            # Fail pipeline if issues found
+ 
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()  # Upload even if scan failed
+        with:
+          sarif_file: 'trivy-source-results.sarif'
+ 
+      - name: Notify on vulnerability found
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security: Source code vulnerabilities found',
+              body: `Source scan failed on commit ${context.sha}. Check Security tab.`,
+              labels: ['security', 'critical']
+            })
+ 
+  # ── JOB 2: Build & Image Scan ───────────────────────────────────────
+  build-and-scan:
+    name: 'Build & Scan Docker Image'
+    runs-on: ubuntu-latest
+    needs: source-scan  # Only run if source scan passed
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    outputs:
+      image-tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for versioning
+ 
+      - name: Generate semantic version tag
+        id: version
+        run: |
+          # Count commits as patch version (simple but effective)
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          TAG="v1.0.${COMMIT_COUNT}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
+ 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}  # Auto-provided by GitHub
+ 
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false  # Don't push yet — scan first
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+          load: true   # Load into local Docker for scanning
+ 
+      - name: Run Trivy image vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+ 
+      - name: Upload image scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+ 
+      - name: Notify on image vulnerability
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security: Image vulnerabilities found',
+              body: `Image scan failed on commit ${context.sha}. Check Security tab.`,
+              labels: ['security', 'critical']
+            })
+ 
+      - name: Push image (only if both scans passed)
+        if: github.ref == 'refs/heads/main' && success()
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+ 
+  # ── JOB 3: Update GitOps Config ─────────────────────────────────────
+  update-gitops:
+    name: 'Update GitOps Config Repo'
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout gitops-config repo
+        uses: actions/checkout@v4
+        with:
+          repository: ras-km /gitops-config
+          token: ${{ secrets.GITOPS_TOKEN }}  # Personal Access Token with repo write
+ 
+      - name: Update image tag in production overlay
+        run: |
+          cd apps/hello-world/overlays/production
+          # Update the image tag in kustomization.yaml
+          sed -i 's|newTag:.*|newTag: ${{ needs.build-and-scan.outputs.image-tag }}|' kustomization.yaml
+ 
+      - name: Commit and push the change
+        run: |
+          git config user.email 'github-actions@github.com'
+          git config user.name 'GitHub Actions Bot'
+          git add .
+          git commit -m 'ci: update hello-world to ${{ needs.build-and-scan.outputs.image-tag }}'
+          git push
+        # ArgoCD watches this repo and will now trigger deployment
